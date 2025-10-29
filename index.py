@@ -1,10 +1,41 @@
 import os
+import threading
+import time
+import asyncio
 from io import BytesIO
 from zoneinfo import ZoneInfo
+from flask import Flask
 import aiohttp
+from PIL import Image, ImageDraw, ImageFont
 import discord
 from discord.ext import commands
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!", 200
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
+async def ping_self():
+    await asyncio.sleep(5)  
+    url = "http://localhost:8080"
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    await resp.text()
+            print("Keep-alive ping sent.")
+        except Exception as e:
+            print(f"Keep-alive failed: {e}")
+        await asyncio.sleep(20)  
+
+def keep_alive():
+    thread = threading.Thread(target=run_flask)
+    thread.start()
+    asyncio.get_event_loop().create_task(ping_self())
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 if not TOKEN:
@@ -73,14 +104,11 @@ async def create_screenshot(message: discord.Message) -> BytesIO:
     x_text = padding + avatar_size + 15
     y_text = padding
 
-    # Username (bold + shadow)
     draw.text((x_text + 1, y_text + 1), user_text, font=font_user, fill="#000000")
     draw.text((x_text, y_text), user_text, font=font_user, fill="#FFFFFF")
 
-    # Timestamp
     draw.text((x_text, y_text + 30), timestamp, font=font_time, fill="#B9BBBE")
 
-    # Message content (bigger, clearer, slight shadow)
     y_text += 65
     for line in content_text.splitlines():
         draw.text((x_text + 1, y_text + 1), line, font=font_content, fill="#000000")
@@ -118,4 +146,5 @@ async def monitor_message(message: discord.Message):
             print(f"Failed to create/send screenshot: {e}")
 
 if __name__ == "__main__":
+    keep_alive()
     bot.run(TOKEN)
