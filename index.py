@@ -10,7 +10,7 @@ TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 if not TOKEN:
     raise ValueError("DISCORD_BOT_TOKEN environment variable is missing!")
 
-TARGET_CHANNEL_ID = 1365172206195179600
+TARGET_CHANNEL_ID = 1432897997896941588
 WORDS_FILE = "words.txt"
 FONT_PATH = "fonts/Inter-Regular.ttf"
 FONT_BOLD_PATH = "fonts/Inter-Bold.ttf"
