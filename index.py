@@ -1,6 +1,5 @@
 import os
 import threading
-import time
 import asyncio
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -20,7 +19,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=8080)
 
 async def ping_self():
-    await asyncio.sleep(5)  
+    await asyncio.sleep(5)
     url = "http://localhost:8080"
     while True:
         try:
@@ -30,7 +29,7 @@ async def ping_self():
             print("Keep-alive ping sent.")
         except Exception as e:
             print(f"Keep-alive failed: {e}")
-        await asyncio.sleep(20)  
+        await asyncio.sleep(20)
 
 def keep_alive():
     thread = threading.Thread(target=run_flask)
@@ -52,6 +51,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 _keywords = set()
+sent_messages = set()
 
 def load_keywords():
     global _keywords
@@ -70,7 +70,6 @@ async def create_screenshot(message: discord.Message) -> BytesIO:
     width, padding = 900, 30
     avatar_size = 60
     line_spacing = 10
-
     async with aiohttp.ClientSession() as session:
         async with session.get(str(message.author.display_avatar.replace(size=128).url)) as r:
             avatar_bytes = await r.read()
@@ -79,42 +78,33 @@ async def create_screenshot(message: discord.Message) -> BytesIO:
     mask = Image.new("L", (avatar_size, avatar_size), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, avatar_size, avatar_size), fill=255)
     avatar.putalpha(mask)
-
     user_text = f"{message.author.display_name}#{message.author.discriminator}"
     pst = message.created_at.astimezone(ZoneInfo("America/Los_Angeles"))
     timestamp = pst.strftime("%b %d, %Y %I:%M %p")
     content_text = message.content.strip()
-
     try:
         font_user = ImageFont.truetype(FONT_BOLD_PATH, 26)
         font_content = ImageFont.truetype(FONT_PATH, 23)
         font_time = ImageFont.truetype(FONT_PATH, 17)
     except OSError:
         font_user = font_content = font_time = ImageFont.load_default()
-
     temp_img = Image.new("RGB", (width, 200))
     draw = ImageDraw.Draw(temp_img)
     content_height = sum((draw.textbbox((0, 0), line, font=font_content)[3] for line in content_text.splitlines()))
     total_height = padding * 2 + max(avatar_size, 60 + content_height + 20)
-
     img = Image.new("RGB", (width, total_height), "#2C2F33")
     draw = ImageDraw.Draw(img)
     img.paste(avatar, (padding, padding), avatar)
-
     x_text = padding + avatar_size + 15
     y_text = padding
-
     draw.text((x_text + 1, y_text + 1), user_text, font=font_user, fill="#000000")
     draw.text((x_text, y_text), user_text, font=font_user, fill="#FFFFFF")
-
     draw.text((x_text, y_text + 30), timestamp, font=font_time, fill="#B9BBBE")
-
     y_text += 65
     for line in content_text.splitlines():
         draw.text((x_text + 1, y_text + 1), line, font=font_content, fill="#000000")
         draw.text((x_text, y_text), line, font=font_content, fill="#FFFFFF")
         y_text += draw.textbbox((0, 0), line, font=font_content)[3] + line_spacing
-
     output = BytesIO()
     img.save(output, format="PNG")
     output.seek(0)
@@ -135,13 +125,14 @@ async def reloadwords(ctx):
 async def monitor_message(message: discord.Message):
     if message.author.bot or not message.content:
         return
+    if message.id in sent_messages:
+        return
     if match_keyword(message.content):
-        print(f"Trigger word detected in message id {message.id}")
         try:
             screenshot = await create_screenshot(message)
             target_ch = await bot.fetch_channel(TARGET_CHANNEL_ID)
             await target_ch.send(file=discord.File(screenshot, filename=f"{message.id}.png"))
-            print(f"Screenshot sent for message id {message.id}")
+            sent_messages.add(message.id)
         except Exception as e:
             print(f"Failed to create/send screenshot: {e}")
 
