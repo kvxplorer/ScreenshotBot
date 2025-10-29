@@ -6,7 +6,10 @@ import discord
 from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 
-TOKEN = "MTQzMjg4MzU1MDYxMjM1NzE0MQ.G8KQ04.5OoQhVLAcadZCe3vVBJWo6vt8_fG-NYp2YnesQ"
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("DISCORD_BOT_TOKEN environment variable is missing!")
+
 TARGET_CHANNEL_ID = 1365172206195179600
 WORDS_FILE = "words.txt"
 FONT_PATH = "/System/Library/Fonts/Supplemental/Arial.ttf"
