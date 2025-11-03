@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 import discord
 from discord.ext import commands
 
-# ====== Flask Keep-Alive Setup ======
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -32,18 +32,24 @@ async def ping_self():
             print(f"Keep-alive failed: {e}")
         await asyncio.sleep(20)
 
-def keep_alive():
+def keep_alive(bot):
+
     thread = threading.Thread(target=run_flask)
     thread.start()
-    asyncio.get_event_loop().create_task(ping_self())
 
-# ====== Discord Bot Setup ======
+
+    async def schedule_ping():
+        await bot.wait_until_ready()
+        bot.loop.create_task(ping_self())
+    bot.loop.create_task(schedule_ping())
+
+
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN")
 if not TOKEN:
     raise ValueError("DISCORD_BOT_TOKEN environment variable is missing!")
 
-TARGET_CHANNEL_ID = 1432897997896941588  # For screenshots
-VOICE_CHANNEL_ID = 1434983870062788618  # Voice channel to auto-join
+TARGET_CHANNEL_ID = 1432897997896941588 
+VOICE_CHANNEL_ID = 1434983870062788618  
 WORDS_FILE = "words.txt"
 FONT_PATH = "fonts/Inter-Regular.ttf"
 FONT_BOLD_PATH = "fonts/Inter-Bold.ttf"
@@ -52,11 +58,11 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
 intents.guilds = True
-intents.voice_states = True  # Needed for voice
+intents.voice_states = True  
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ====== Keyword Monitoring ======
+
 _keywords = set()
 sent_messages = set()
 
@@ -73,7 +79,7 @@ def match_keyword(text: str) -> bool:
     text = text.lower()
     return any(k in text for k in _keywords)
 
-# ====== Screenshot Creation ======
+
 async def create_screenshot(message: discord.Message) -> BytesIO:
     width, padding = 900, 30
     avatar_size = 60
@@ -123,12 +129,11 @@ async def create_screenshot(message: discord.Message) -> BytesIO:
     output.seek(0)
     return output
 
-# ====== Events ======
 @bot.event
 async def on_ready():
     load_keywords()
     print(f"Logged in as {bot.user} | {len(_keywords)} keywords loaded")
-    # Auto-join voice channel
+
     guild = bot.guilds[0] if bot.guilds else None
     if guild:
         channel = guild.get_channel(VOICE_CHANNEL_ID)
@@ -137,7 +142,7 @@ async def on_ready():
                 await channel.connect()
                 print(f"Joined voice channel: {channel.name}")
 
-# ====== Commands ======
+
 @bot.command()
 @commands.has_permissions(manage_guild=True)
 async def reloadwords(ctx):
@@ -164,7 +169,7 @@ async def leave(ctx):
     await ctx.voice_client.disconnect()
     await ctx.send("Disconnected from the voice channel.")
 
-# ====== Message Listener ======
+
 @bot.listen("on_message")
 async def monitor_message(message: discord.Message):
     if message.author.bot or not message.content:
@@ -180,7 +185,7 @@ async def monitor_message(message: discord.Message):
         except Exception as e:
             print(f"Failed to create/send screenshot: {e}")
 
-# ====== Run Bot ======
+
 if __name__ == "__main__":
-    keep_alive()
+    keep_alive(bot)
     bot.run(TOKEN)
